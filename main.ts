@@ -1,6 +1,23 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import * as fs from 'fs';
+import * as path from 'path';
+import { exec } from 'child_process';
+import { pyrightExtension, tryRunPyright } from 'EditingView';
 
-// Remember to rename these classes and interfaces!
+function runCommand(command: string) {
+    exec(command, (error, stdout, stderr) => {
+        if (error) {
+            console.log(`Error executing command: ${error.message}`);
+            return;
+        }
+        if (stderr) {
+            console.log(`Command error output: ${stderr}`);
+            return;
+        }
+        console.log(`Command output: ${stdout}`);
+    });
+}
+
 
 interface MyPluginSettings {
 	mySetting: string;
@@ -10,12 +27,28 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 	mySetting: 'default'
 }
 
+interface Paths {
+	basePath: string;
+	filePath: string;
+	outputPath: string;
+}
+
+export let basePath: string;
+export let filePath: string;
+export let outputPath: string;
+
+// const basePath = path.join(this.app.vault.adapter.getBasePath(), '.obsidian', 'plugins', 'obsidian-pyright', 'Pyright');
+
 export default class MyPlugin extends Plugin {
 	settings: MyPluginSettings;
 
 	async onload() {
 		await this.loadSettings();
+        basePath = path.join((this.app.vault.adapter as any).getBasePath(), '.obsidian', 'plugins', 'obsidian-pyright', 'Pyright');
+        filePath = path.join(basePath, 'pyright_watcher.py');
+        outputPath = path.join(basePath, 'output.json');
 
+		
 		// This creates an icon in the left ribbon.
 		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
 			// Called when the user clicks the icon.
@@ -33,6 +66,7 @@ export default class MyPlugin extends Plugin {
 			id: 'open-sample-modal-simple',
 			name: 'Open sample modal (simple)',
 			callback: () => {
+
 				new SampleModal(this.app).open();
 			}
 		});
@@ -45,25 +79,8 @@ export default class MyPlugin extends Plugin {
 				editor.replaceSelection('Sample Editor Command');
 			}
 		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
+		this.registerEditorExtension(pyrightExtension);
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
@@ -74,12 +91,20 @@ export default class MyPlugin extends Plugin {
 			console.log('click', evt);
 		});
 
+		this.addCommand({id: "unfold-all", name: "Unfold all codeblocks", callback: ()=>{
+			const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+			if (activeView) {
+					//@ts-expect-error Undocumented Obsidian API
+					console.log(activeView.editor.cm.docView.view,false)
+			}
+		}});
+
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+		this.registerInterval(window.setInterval(() => tryRunPyright(), 100));
 	}
 
 	onunload() {
-
+		
 	}
 
 	async loadSettings() {

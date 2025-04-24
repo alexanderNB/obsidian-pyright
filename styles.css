@@ -6,3 +6,90 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+.error {
+    position: relative;
+}
+
+.error::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: repeating-linear-gradient(
+        90deg,
+        red 0,
+        red 2px,
+        transparent 2px,
+        transparent 4px
+    );
+    z-index: 1;
+    pointer-events: none;
+    text-decoration-skip-ink: none;
+}
+
+.warning {
+    position: relative;
+}
+
+.warning::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: repeating-linear-gradient(
+        90deg,
+        yellow 0,
+        yellow 2px,
+        transparent 2px,
+        transparent 4px
+    );
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* .error {
+    text-decoration: underline;
+    text-decoration-color: red;
+    text-decoration-style: wavy;
+} */
+
+
+.pyright-tooltip {
+    position: relative;
+}
+
+.pyright-tooltip::after {
+    content: attr(tooltip-content);
+    position: fixed; /* Use fixed positioning to escape stacking contexts */
+
+
+    top: attr(tooltip-top);
+    left: attr(tooltip-left);
+    transform: translate(0%, -100%); /* Center horizontally and position above */
+    background: #333;
+    color: #fff;
+    padding: 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 9999;
+}
+
+.pyright-tooltip:hover::after {
+    opacity: 1;
+}
+
+.pyright-not-defined {
+    color: #d4d4d4 !important;
+}
+
+.pyright-bracket-not-closed {
+    color: rgb(210,45,40)
+}
