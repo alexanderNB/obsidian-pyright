@@ -25,7 +25,6 @@ If your plugin does not need CSS, delete this file.
         transparent 2px,
         transparent 4px
     );
-    z-index: 1;
     pointer-events: none;
     text-decoration-skip-ink: none;
 }
@@ -48,7 +47,6 @@ If your plugin does not need CSS, delete this file.
         transparent 2px,
         transparent 4px
     );
-    z-index: 1;
     pointer-events: none;
 }
 
@@ -63,23 +61,22 @@ If your plugin does not need CSS, delete this file.
     position: relative;
 }
 
+:root {
+    --scroll-value: 0px;
+}
+
 .pyright-tooltip::after {
     content: attr(tooltip-content);
-    position: fixed; /* Use fixed positioning to escape stacking contexts */
-
-
-    top: attr(tooltip-top);
-    left: attr(tooltip-left);
-    transform: translate(0%, -100%); /* Center horizontally and position above */
+    position: absolute;  /* Use fixed positioning to escape stacking contexts */
+    transform: translate(0%, -100%);  /*  Center horizontally and position above */
     background: #333;
     color: #fff;
-    padding: 5px;
+    padding: 4px;
     border-radius: 4px;
     white-space: nowrap;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s;
-    z-index: 9999;
 }
 
 .pyright-tooltip:hover::after {

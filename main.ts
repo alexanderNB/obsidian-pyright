@@ -1,22 +1,10 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, debounce, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, View } from 'obsidian';
 import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { pyrightExtension, tryRunPyright } from 'EditingView';
 
-function runCommand(command: string) {
-    exec(command, (error, stdout, stderr) => {
-        if (error) {
-            console.log(`Error executing command: ${error.message}`);
-            return;
-        }
-        if (stderr) {
-            console.log(`Command error output: ${stderr}`);
-            return;
-        }
-        console.log(`Command output: ${stdout}`);
-    });
-}
+import { spawn } from 'child_process';
 
 
 interface MyPluginSettings {
@@ -35,7 +23,6 @@ interface Paths {
 
 export let basePath: string;
 export let filePath: string;
-export let outputPath: string;
 
 // const basePath = path.join(this.app.vault.adapter.getBasePath(), '.obsidian', 'plugins', 'obsidian-pyright', 'Pyright');
 
@@ -46,7 +33,6 @@ export default class MyPlugin extends Plugin {
 		await this.loadSettings();
         basePath = path.join((this.app.vault.adapter as any).getBasePath(), '.obsidian', 'plugins', 'obsidian-pyright', 'Pyright');
         filePath = path.join(basePath, 'pyright_watcher.py');
-        outputPath = path.join(basePath, 'output.json');
 
 		
 		// This creates an icon in the left ribbon.
@@ -77,30 +63,66 @@ export default class MyPlugin extends Plugin {
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				console.log(editor.getSelection());
 				editor.replaceSelection('Sample Editor Command');
+				
 			}
 		});
+
+
+		this.addCommand({
+			id: 'Get-pyright-info-json',
+			name: 'Debug pyright info json',
+			editorCallback: (editor: Editor, view: MarkdownView) => {
+				const command = 'python -m basedpyright -p ' + basePath + ' --outputjson'
+				exec(command, (error, stdout, stderr) => {
+					if (stdout){
+						console.log(JSON.parse(stdout))
+					}
+				});
+				
+			}
+		});
+
+		this.addCommand({
+			id: 'Get-pyright-info-verbose',
+			name: 'Debug pyright info verbose',
+			editorCallback: (editor: Editor, view: MarkdownView) => {
+				const command = 'python -m basedpyright -p ' + basePath + ' --verbose'
+				exec(command, (error, stdout, stderr) => {
+					if (stdout){
+						console.log(stdout)
+					}
+				});
+				
+			}
+		});
+
 
 		this.registerEditorExtension(pyrightExtension);
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
-
-		this.addCommand({id: "unfold-all", name: "Unfold all codeblocks", callback: ()=>{
-			const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-			if (activeView) {
-					//@ts-expect-error Undocumented Obsidian API
-					console.log(activeView.editor.cm.docView.view,false)
-			}
-		}});
-
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
 		this.registerInterval(window.setInterval(() => tryRunPyright(), 100));
+		
+
+		
+		// const serverProcess = spawn('basedpyright-langserver', ['--stdio']);
+
+		// serverProcess.stdout.on('data', (data) => {
+		// // Handle data received from the language server
+		// 	console.log(`stdout: ${data}`);
+		// });
+
+		// serverProcess.stderr.on('data', (data) => {
+		// // Handle error messages from the language server
+		// 	console.log(`stderr: ${data}`);
+		// });
+
+		// serverProcess.on('exit', (code) => {
+		// // Handle server exit
+		// 	console.log(`exit: ${code}`);
+		// });
 	}
 
 	onunload() {
@@ -131,6 +153,8 @@ class SampleModal extends Modal {
 		contentEl.empty();
 	}
 }
+
+
 
 class SampleSettingTab extends PluginSettingTab {
 	plugin: MyPlugin;

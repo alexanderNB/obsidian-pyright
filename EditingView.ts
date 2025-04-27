@@ -15,7 +15,7 @@ import { Extension, EditorState, StateField, StateEffect, StateEffectType, Range
 import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
-import { basePath, filePath, outputPath } from './main';
+import { filePath, basePath } from './main';
 
 interface SettingsState {
 	excludedLanguages: string;
@@ -69,9 +69,8 @@ const processPyrightOutput = StateField.define<DecorationSet>({
 
         let pendingDiagnostics: Diagnostics[] = [];
 
-        console.log("Start going from diagnostics")
         for (const diagnostic of jsonData.generalDiagnostics) {
-            if (diagnostic.rule === "reportUnknownArgumentType") continue; // Ignoring those for now
+            // if (diagnostic.rule === "reportUnknownArgumentType") continue; // Ignoring those for now
             let from = posToOffset(transaction.state, diagnostic.range.start.line + 1, diagnostic.range.start.character); // Convert to 0-based index
             let to = posToOffset(transaction.state, diagnostic.range.end.line + 1, diagnostic.range.end.character); // Convert to 0-based index
             while (offsetToPos(transaction.state, to).column == 0){
@@ -91,7 +90,6 @@ const processPyrightOutput = StateField.define<DecorationSet>({
                 message: diagnostic.message,
                 extra: new Set()
             };
-            console.log(diagnostic.rule)
             if (diagnostic.rule === "reportUndefinedVariable"){
                 currentDiagnostic.extra.add("reportUndefinedVariable")
             }
@@ -135,14 +133,15 @@ const processPyrightOutput = StateField.define<DecorationSet>({
             while (i < pendingDiagnostics.length) {
                 const pendingDiagnostic = pendingDiagnostics[i]
                 if(pendingDiagnostic.from >= pendingDiagnostic.to){
-                    pendingDiagnostics.remove(pendingDiagnostic)
+                    pendingDiagnostics.remove(pendingDiagnostic);
                     continue;
-                }
+                } 
                 if (pendingDiagnostic.to <= from){
-                    console.log("Adds pendingDiagnostic", pendingDiagnostic.from, pendingDiagnostic.to, pendingDiagnostic.severity, pendingDiagnostic.message, pendingDiagnostic.extra)
+                    pendingDiagnostics.remove(pendingDiagnostic);
                     let cssClass = pendingDiagnostic.severity; // Use a CSS class for styling
                     if (pendingDiagnostic.extra.has("reportUndefinedVariable")){
                         cssClass += " pyright-not-defined"
+                        
                     }
 
 
@@ -153,9 +152,6 @@ const processPyrightOutput = StateField.define<DecorationSet>({
                     );
                 
 
-                    const tooltipPos = editorView.coordsAtPos(pendingDiagnostic.to);
-                    if (!tooltipPos) continue;
-                    console.log("^^At position", tooltipPos)
                     builder.add(
                         pendingDiagnostic.from,
                         pendingDiagnostic.to,
@@ -163,11 +159,8 @@ const processPyrightOutput = StateField.define<DecorationSet>({
                             class: "pyright-tooltip", 
                             attributes: { 
                                 "tooltip-content": pendingDiagnostic.message, 
-                                "tooltip-top": "" + tooltipPos.top,
-                                "tooltip-left": "" + tooltipPos.left, 
                             }})
                     );
-                    pendingDiagnostics.remove(pendingDiagnostic);
                     continue;
                 }
                 i++;
@@ -175,8 +168,8 @@ const processPyrightOutput = StateField.define<DecorationSet>({
         }
         for (const i in pendingDiagnostics){
             const pendingDiagnostic = pendingDiagnostics[i]
+            pendingDiagnostics.remove(pendingDiagnostic);
             if (pendingDiagnostic.from >= pendingDiagnostic.to) continue;
-            console.log("Adds pendingDiagnostic", pendingDiagnostic.from, pendingDiagnostic.to, pendingDiagnostic.severity, pendingDiagnostic.message, pendingDiagnostic.extra)
             let cssClass = pendingDiagnostic.severity; // Use a CSS class for styling
             if (pendingDiagnostic.extra.has("reportUndefinedVariable")){
                 cssClass += " pyright-not-defined"
@@ -187,9 +180,6 @@ const processPyrightOutput = StateField.define<DecorationSet>({
                 Decoration.mark({ class: cssClass })
             );
         
-            const tooltipPos = editorView.coordsAtPos(pendingDiagnostic.to);
-            if (!tooltipPos) continue;
-            console.log("^^At position", tooltipPos)
             builder.add(
                 pendingDiagnostic.from,
                 pendingDiagnostic.to,
@@ -197,11 +187,9 @@ const processPyrightOutput = StateField.define<DecorationSet>({
                     class: "pyright-tooltip", 
                     attributes: { 
                         "tooltip-content": pendingDiagnostic.message, 
-                        "tooltip-top": "" + tooltipPos.top,
-                        "tooltip-left": "" + tooltipPos.left, 
                     }})
             );
-            pendingDiagnostics.remove(pendingDiagnostic);
+            
         }
 
 
@@ -258,27 +246,29 @@ const changeListener = EditorView.updateListener.of((update) => {
             }
         }
 
-        if(fileContents == lastFileContents) return;
+        // if(fileContents == lastFileContents) return;
+
 
         lastFileContents = fileContents;
         lastUpdate = update;
         timer = Date.now()
         hasRun = false;
+
+        jsonData = null; // Reset jsonData to null
+        allowUpdate = true; // Reset allowUpdate to false
+        lastUpdate.view.dispatch({
+            effects: StateEffect.appendConfig.of([
+                processPyrightOutput
+            ]),
+        });
     }
 });
 
-const waitTimer = 100; // ms
+const waitTimer = 250; // ms
 let hasRun = false;
 export function tryRunPyright(){
     counter++;
     if (hasRun) return;
-    jsonData = null; // Reset jsonData to null
-    allowUpdate = true; // Reset allowUpdate to false
-    lastUpdate.view.dispatch({
-        effects: StateEffect.appendConfig.of([
-            processPyrightOutput
-        ]),
-    });
     if (Date.now() < timer + waitTimer){
         return;
     } 
@@ -293,11 +283,13 @@ export const pyrightExtension = [changeListener];
 
 
 function runPyright(fileContents: string, update: ViewUpdate) {
+    if (fileContents === undefined) return;
     fs.writeFile(filePath, fileContents, (err) => {
         if (err) {
             console.error('Error writing to code.py:', err);
         } else {
-            const command = 'python -m basedpyright ' + filePath + ' --outputjson'
+            const pythonPath = "c:\\Python312";
+            const command = 'python -m basedpyright -p ' + basePath + ' --outputjson'
             exec(command, (error, stdout, stderr) => {
                 if (stdout){
 
