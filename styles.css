@@ -69,14 +69,19 @@ If your plugin does not need CSS, delete this file.
     content: attr(tooltip-content);
     position: absolute;  /* Use fixed positioning to escape stacking contexts */
     transform: translate(0%, -100%);  /*  Center horizontally and position above */
-    background: #333;
-    color: #fff;
-    padding: 4px;
-    border-radius: 4px;
+    background: #202020;
+    border: 1px solid #454545;
+    color: #cccccc;
+    /* padding: 4px; */
+    padding-left: 4px;
+    /* font-family: "Segoe WPC", "Segoe UI", "sans-serif"; */
+    padding-right: 4px;
+    border-radius: 3px;
     white-space: nowrap;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.2s;
+    /* animation: fadein 1s linear; */
+    transition: opacity 0.1s;
 }
 
 .pyright-tooltip:hover::after {
